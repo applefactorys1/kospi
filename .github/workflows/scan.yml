@@ -20,8 +20,12 @@ jobs:
       - name: 라이브러리 설치
         run: pip install -r requirements.txt
 
-      - name: 스캔 후 텔레그램 발송
+           - name: 스캔 후 텔레그램 발송
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
-        run: python notify.py
+        run: |
+          echo "===== notify.py 앞 10줄 ====="
+          head -n 10 notify.py
+          echo "===== 실행 ====="
+          python notify.py
