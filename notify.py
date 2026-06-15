@@ -1,3 +1,5 @@
+THIS_IS_NEW_VERSION = "0615"
+print(THIS_IS_NEW_VERSION)
 import os
 import time
 from datetime import datetime, timedelta
