@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-import os, time, json
+import os, time
 from datetime import datetime, timedelta
 import requests, pandas as pd
 
@@ -80,7 +79,7 @@ def get_tickers_and_names():
                 top = cap.sort_values("시가총액", ascending=False).head(200).index.tolist()
                 if len(top) >= 100: return top, name_map
         except: continue
-    raise RuntimeError("종목 목록 실패")
+    raise RuntimeError("종목목록실패")
 
 def scan():
     from pykrx import stock
@@ -114,38 +113,37 @@ def scan():
 
 def send_telegram(text):
     if not TOKEN or not CHAT:
-        print("환경변수 없음"); print(text); return False
+        print("환경변수없음")
+        print(text)
+        return False
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    chunks = [text[i:i+3500] for i in range(0, len(text), 3500)] or [text]
-    ok = True
-    for ch in chunks:
-        try:
-            r = requests.post(url, data={"chat_id":CHAT, "text":ch, "parse_mode":"Markdown"}, timeout=20)
-            if r.status_code != 200: print("발송 실패:", r.status_code); ok = False
-        except Exception as e: print("오류:", e); ok = False
-    return ok
+    try:
+        r = requests.post(url, data={"chat_id":CHAT, "text":text, "parse_mode":"Markdown"}, timeout=20)
+        return r.status_code == 200
+    except Exception as e:
+        print(f"오류: {e}")
+        return False
 
 def main():
-    print(f"[{datetime.now():%Y-%m-%d %H:%M}] 스캔 시작")
+    print(f"[{datetime.now():%Y-%m-%d %H:%M}] 시작")
     try:
         hits, end = scan()
     except Exception as e:
         send_telegram(f"오류: {e}")
-        print("오류:", e)
         return
     
     date_str = end.strftime("%Y-%m-%d")
     if not hits:
-        msg = f"📊 코스피200 상승전환\n_{date_str}_\n\n조건 통과 종목 없음"
+        msg = f"📊 코스피200 상승전환\n_{date_str}_\n\n조건통과종목없음"
     else:
         strong = sum(1 for h in hits if h["grade"]=="강")
-        msg = f"📊 코스피200 상승전환\n_{date_str} · {len(hits)}종목 (강★ {strong})_"
-        html_file = f"result_{end.strftime('%Y%m%d')}.html"
-        msg += f"\n\n🔗 [차트보기](https://raw.githubusercontent.com/applefactorys1/kospi/main/{html_file})"
+        msg = f"📊 코스피200상승전환\n_{date_str} {len(hits)}종목 강★{strong}_\n\n"
+        for h in hits:
+            star = "🔥" if h["grade"]=="강" else "•"
+            msg += f"{star} {h['name']}({h['code']}) {h['flip_date']} {int(h['close']):,}원\n"
     
-    msg += "\n\n투자책임은본인"
-    sent = send_telegram(msg)
-    print("발송 완료" if sent else "발송안됨")
+    send_telegram(msg)
+    print("완료")
 
 if __name__ == "__main__":
     main()
