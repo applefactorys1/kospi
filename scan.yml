@@ -33,4 +33,3 @@ jobs:
           git add result_*.html || true
           git commit -m "Add screening result $(date +%Y-%m-%d)" || true
           git push origin main || true
-
