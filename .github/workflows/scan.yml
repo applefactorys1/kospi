@@ -8,6 +8,7 @@ on:
 jobs:
   run-screener:
     runs-on: ubuntu-latest
+
     steps:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
@@ -20,7 +21,7 @@ jobs:
       - name: 라이브러리 설치
         run: pip install -r requirements.txt
 
-           - name: 스캔 후 텔레그램 발송
+      - name: 스캔 후 텔레그램 발송
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
