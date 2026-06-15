@@ -177,27 +177,123 @@ def scan():
     return hits, end
 
 
-def build_message(hits, end):
+def build_html(hits, end):
+    """HTML 결과 페이지 생성"""
+    date_str = end.strftime("%Y-%m-%d")
+    strong = sum(1 for h in hits if h["grade"] == "강") if hits else 0
+    
+    html = f"""<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>코스피200 상승전환 스크리너 - {date_str}</title>
+<style>
+:root{{--bg:#0d1117;--panel:#161b22;--panel2:#1c2330;--line:#283041;--ink:#e6edf3;--muted:#8b97a7;--gold:#d4a23a;--up:#22a06b;--down:#d6453d;}}
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{background:radial-gradient(800px 460px at 100% -10%,rgba(212,162,58,.07),transparent 60%),var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}}
+.wrap{{max-width:960px;margin:0 auto;padding:24px 16px 60px}}
+.eyebrow{{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:9px}}
+h1{{font-size:25px;font-weight:800;letter-spacing:-.02em}}
+h1 .sub{{display:block;color:var(--muted);font-size:.52em;font-weight:600;margin-top:9px;line-height:1.45}}
+.meta{{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 18px}}
+.chip{{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-size:12px;color:var(--muted)}}
+.chip b{{color:var(--ink);font-weight:700}}
+.summary{{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}}
+.stat{{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:14px;padding:15px 18px;flex:1;min-width:120px}}
+.stat .n{{font-size:28px;font-weight:800}} .stat .l{{font-size:12px;color:var(--muted);margin-top:3px}}
+.stat.s .n{{color:var(--gold)}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:13px}}
+.card{{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:15px;position:relative;overflow:hidden}}
+.card::before{{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--up)}}
+.card .top{{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}}
+.card .name{{font-size:15px;font-weight:800}} .card .code{{font-size:12px;color:var(--muted);margin-top:2px}}
+.badge{{font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;white-space:nowrap}}
+.badge.s{{background:rgba(212,162,58,.18);color:var(--gold)}} .badge.m{{background:rgba(139,151,167,.15);color:var(--muted)}}
+canvas{{width:100%;height:60px;display:block;margin:6px 0 10px}}
+.row{{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:var(--muted)}}
+.row b{{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}}
+.empty{{text-align:center;color:var(--muted);padding:40px 20px;background:var(--panel);border:1px solid var(--line);border-radius:15px;line-height:1.7}}
+footer{{color:var(--muted);font-size:11px;line-height:1.6;border-top:1px solid var(--line);padding-top:16px;margin-top:30px}}
+</style></head><body><div class="wrap">
+<div class="eyebrow">KOSPI200 · Alpha Heikin-Ashi Screener</div>
+<h1>상승 전환 포착<span class="sub">평활 하이킨아시 색 전환 + 추세 강도 필터를 통과한 종목을 찾습니다</span></h1>
+<div class="meta">
+<span class="chip">기준일 <b>{date_str}</b></span>
+<span class="chip">대상 <b>200종목</b></span>
+<span class="chip">평활 <b>EMA{SMOOTH}</b></span>
+<span class="chip">몸통 <b>≥{int(BODY_MIN)}%</b></span>
+<span class="chip">ADX <b>≥{int(ADX_MIN)}</b></span>
+<span class="chip">최근 <b>{RECENT_DAYS}일</b></span>
+</div>
+<div class="summary">
+<div class="stat"><div class="n">{len(hits)}</div><div class="l">발견 종목</div></div>
+<div class="stat s"><div class="n">{strong}</div><div class="l">강★ (거래량 급증)</div></div>
+<div class="stat"><div class="n">{len(hits)-strong}</div><div class="l">중 (추세)</div></div>
+</div>
+"""
+    
+    if not hits:
+        html += f'<div class="empty">조건을 만족하는 상승 전환 종목이 없습니다.<br>평활 강함 조건에서는 종목이 드물게 나오는 게 정상입니다.</div>'
+    else:
+        html += '<div class="grid">'
+        for idx, h in enumerate(hits):
+            isS = h["grade"] == "강"
+            spark = h.get("spark", [])
+            flip_pos = h.get("flip_pos", -1)
+            html += f'''<div class="card">
+<div class="top"><div><div class="name">{h['name']}</div><div class="code">{h['code']}</div></div>
+<span class="badge {'s' if isS else 'm'}">{'강 ★' if isS else '중'}</span></div>
+<canvas id="sp{idx}"></canvas>
+<div class="row"><span>전환일</span><b>{h['flip_date']} ({h['days_ago']}일전)</b></div>
+<div class="row"><span>현재가</span><b>{int(h['close']):,}원</b></div>
+<div class="row"><span>몸통 / ADX</span><b>{int(h['body'])}% / {int(h['adx'])}</b></div>
+<div class="row"><span>거래량(평균대비)</span><b>{h['vol_ratio']}배</b></div>
+</div>'''
+        html += '</div>'
+    
+    html += f'''<footer>알파 하이킨아시 = OHLC를 EMA로 평활한 뒤 표준 HA 공식을 적용한 변형입니다. ★ = 전환일 거래량이 평균을 크게 웃돈 강신호. 정보 제공용이며 투자 권유가 아닙니다. 모든 투자 책임은 본인에게 있습니다.</footer>
+</div>
+<script>
+const fmt=n=>Math.round(n).toLocaleString('ko-KR');
+function drawSpark(id,spark,flipPos){{
+  const cv=document.getElementById(id); if(!cv||!spark||!spark.length)return;
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=60;
+  cv.width=W*dpr; cv.height=H*dpr; const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr);
+  const cs=getComputedStyle(document.documentElement);
+  const up=cs.getPropertyValue('--up').trim(),dn=cs.getPropertyValue('--down').trim(),gold=cs.getPropertyValue('--gold').trim();
+  const vals=spark.map(s=>s.c),hi=Math.max(...vals),lo=Math.min(...vals),span=(hi-lo)||1;
+  const n=spark.length,bw=W/n,pad=6,y=v=>pad+(H-pad*2)*(1-(v-lo)/span);
+  spark.forEach((s,i)=>{{
+    if(i===0)return;
+    ctx.strokeStyle=s.up?up:dn; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(bw*(i-1)+bw/2,y(spark[i-1].c)); ctx.lineTo(bw*i+bw/2,y(s.c)); ctx.stroke();
+  }});
+  if(flipPos>=0&&flipPos<n){{
+    const x=bw*flipPos+bw/2;
+    ctx.strokeStyle=gold; ctx.lineWidth=1.2; ctx.setLineDash([3,2]);
+    ctx.beginPath(); ctx.moveTo(x,2); ctx.lineTo(x,H-2); ctx.stroke(); ctx.setLineDash([]);
+  }}
+}}
+const data = {hits};
+data.forEach((d,idx)=>drawSpark('sp'+idx,d.spark,d.flip_pos));
+</script></body></html>"""
+    return html
+
+
+def build_message(hits, end, html_url=None):
     date_str = end.strftime("%Y-%m-%d")
     if not hits:
-        return (f"📊 *코스피200 상승전환 스크리너*\n"
-                f"_{date_str} 기준_\n\n"
-                f"오늘은 조건(평활 EMA{SMOOTH} · 몸통≥{int(BODY_MIN)}% · ADX≥{int(ADX_MIN)} · "
-                f"최근 {RECENT_DAYS}일)을 통과한 상승 전환 종목이 없습니다.\n"
-                f"엄격 조건에서는 종목이 드물게 나오는 게 정상입니다.")
-
-    strong = sum(1 for h in hits if h["grade"] == "강")
-    lines = [f"📊 *코스피200 상승전환 스크리너*",
-             f"_{date_str} 기준 · {len(hits)}종목 (강★ {strong})_", ""]
-    for h in hits:
-        star = "🔥" if h["grade"] == "강" else "•"
-        lines.append(
-            f"{star} *{h['name']}* ({h['code']})\n"
-            f"   전환 {h['flip_date']}({h['days_ago']}일전) · "
-            f"{int(h['close']):,}원 · 몸통{int(h['body'])}% ADX{int(h['adx'])} · 거래량 {h['vol_ratio']}배"
-        )
-    lines.append("\n_참고용입니다. 투자 책임은 본인에게 있습니다._")
-    return "\n".join(lines)
+        msg = (f"📊 *코스피200 상승전환 스크리너*\n"
+               f"_{date_str} 기준_\n\n"
+               f"오늘은 조건을 통과한 상승 전환 종목이 없습니다.")
+    else:
+        strong = sum(1 for h in hits if h["grade"] == "강")
+        msg = (f"📊 *코스피200 상승전환 스크리너*\n"
+               f"_{date_str} 기준 · {len(hits)}종목 (강★ {strong})_")
+    
+    if html_url:
+        msg += f"\n\n🔗 [차트 보기]({html_url})"
+    msg += "\n\n_참고용입니다. 투자 책임은 본인에게 있습니다._"
+    return msg
 
 
 def send_telegram(text):
@@ -231,9 +327,23 @@ def main():
         send_telegram(f"⚠️ 스크리너 실행 중 오류: {e}")
         print("오류:", e)
         return
-    msg = build_message(hits, end)
+    
+    # HTML 생성
+    html_content = build_html(hits, end)
+    html_filename = f"result_{end.strftime('%Y%m%d')}.html"
+    
+    # 로컬에 저장 (GitHub Actions에서 commit할 파일)
+    with open(html_filename, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+    print(f"HTML 저장: {html_filename}")
+    
+    # GitHub 링크 생성 (raw content 주소)
+    html_url = f"https://raw.githubusercontent.com/applefactorys1/kospi/main/{html_filename}"
+    
+    # 메시지 생성 (링크 포함)
+    msg = build_message(hits, end, html_url)
     sent = send_telegram(msg)
-    print("발송 완료" if sent else "발송 안 됨(미리보기만 출력)")
+    print("발송 완료" if sent else "발송 안 됨")
 
 
 if __name__ == "__main__":
