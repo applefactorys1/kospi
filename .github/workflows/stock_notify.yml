@@ -1,0 +1,39 @@
+name: Stock Notify
+
+on:
+  schedule:
+    # 한국시간 12:00 = UTC 03:00
+    - cron: '0 3 * * 1-5'
+
+    # 한국시간 13:00 = UTC 04:00
+    - cron: '0 4 * * 1-5'
+
+    # 한국시간 18:00 = UTC 09:00
+    - cron: '0 9 * * 1-5'
+
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy requests pykrx
+
+      - name: Run stock notify
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+        run: |
+          python notify.py
